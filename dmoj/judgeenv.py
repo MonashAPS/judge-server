@@ -253,15 +253,8 @@ def get_problem_roots(warnings=False):
     if _problem_dirs_cache is not None:
         return _problem_dirs_cache
 
-    dirs = []
-    dirs_set = set()
-    for dir_glob in problem_globs:
-        config_glob = os.path.join(dir_glob, 'init.yml')
-        root_dirs = {os.path.dirname(os.path.dirname(x)) for x in glob.iglob(config_glob, recursive=True)}
-        for root_dir in root_dirs:
-            if root_dir not in dirs_set:
-                dirs.append(root_dir)
-                dirs_set.add(root_dir)
+    # For MAPS, the glob is always '/problems/**/'
+    dirs = ['/problems/']
 
     if warnings:
         cleaned_dirs = []
@@ -296,8 +289,10 @@ def get_supported_problems_and_mtimes(warnings=True):
     for dir_glob in problem_globs:
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
             if os.access(problem_config, os.R_OK):
-                problem_dir = os.path.dirname(problem_config)
-                problem = utf8text(os.path.basename(problem_dir))
+                # For MAPS, the glob is always '/problems/**/'
+                rel_path_split = os.path.normpath(os.path.relpath(problem_config, start="/problems/")).split(os.sep)
+                problem_dir = os.sep.join(rel_path_split[:-1])
+                problem = utf8text(".".join(rel_path_split[:-1]))
 
                 if problem in problem_dirs:
                     if warnings:
