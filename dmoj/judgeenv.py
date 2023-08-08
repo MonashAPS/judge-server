@@ -294,6 +294,11 @@ def get_supported_problems_and_mtimes(warnings=True):
                 problem_dir = os.sep.join(rel_path_split[:-1])
                 problem = utf8text(".".join(rel_path_split[:-1]))
 
+                # Temp print
+                print_ansi(
+                    f'#ansi[LOG: problem {problem} found at {problem_dir}](green)'
+                )
+
                 if problem in problem_dirs:
                     if warnings:
                         print_ansi(
