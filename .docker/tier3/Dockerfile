@@ -1,9 +1,10 @@
 FROM dmoj/runtimes-tier3
 
 ARG TAG=master
+RUN apt-get update
+RUN apt-get install -y python3.9-venv
 RUN mkdir /judge /problems && cd /judge && \
 	curl -L https://github.com/MonashAPS/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
-		apt-get install -y python3.9-venv && \
     python3 -m venv --prompt=DMOJ /env && \
 	/env/bin/pip3 install cython && \
 	/env/bin/pip3 install -e . && \
