@@ -1,9 +1,10 @@
 import os
 import re
 from collections import deque
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Type
 
 from dmoj.cptbox import TracedPopen
+from dmoj.executors.base_executor import AutoConfigOutput, AutoConfigResult, VersionFlags
 from dmoj.executors.compiled_executor import CompiledExecutor
 from dmoj.executors.mixins import SingleDigitVersionMixin
 from dmoj.judgeenv import env
@@ -15,13 +16,16 @@ GCC_COMPILE = os.environ.copy()
 GCC_COMPILE.update(env.runtime.gcc_compile or {})
 MAX_ERRORS = 5
 
+CLANG_VERSIONS: List[str] = ['3.9', '3.8', '3.7', '3.6', '3.5']
+
 recppexc = re.compile(br"terminate called after throwing an instance of \'([A-Za-z0-9_:]+)\'\r?$", re.M)
 
 
-class GCCExecutor(SingleDigitVersionMixin, CompiledExecutor):
+class CLikeExecutor(SingleDigitVersionMixin, CompiledExecutor):
     defines: List[str] = []
     flags: List[str] = []
-    arch = 'gcc_target_arch'
+    std: Optional[str] = None
+    arch: str
     has_color = False
 
     source_dict: Dict[str, bytes] = {}
@@ -55,7 +59,7 @@ class GCCExecutor(SingleDigitVersionMixin, CompiledExecutor):
         return []
 
     def get_flags(self) -> List[str]:
-        return self.flags + [f'-fmax-errors={MAX_ERRORS}']
+        return self.flags + ([] if self.std is None else [f'-std={self.std}'])
 
     def get_defines(self) -> List[str]:
         return ['-DONLINE_JUDGE'] + self.defines
@@ -103,18 +107,14 @@ class GCCExecutor(SingleDigitVersionMixin, CompiledExecutor):
         return ''
 
     @classmethod
-    def get_version_flags(cls, command: str) -> List[str]:
-        return ['-dumpversion']
-
-    @classmethod
-    def autoconfig_run_test(cls, result: Dict[str, Any]) -> Tuple[Dict[str, str], bool, str, str]:
+    def autoconfig_run_test(cls, result: AutoConfigResult) -> AutoConfigOutput:
         # Some versions of GCC/Clang (like those in Raspbian or ARM64 Debian)
         # can't autodetect the CPU, in which case our unconditional passing of
         # -march=native breaks. Here we try to see if -march=native works, and
         # if not fall back to a generic (slow) build.
         for target in ['native', None]:
             result[cls.arch] = target
-            executor: Type[GCCExecutor] = type('Executor', (cls,), {'runtime_dict': result})
+            executor: Type[CLikeExecutor] = type('Executor', (cls,), {'runtime_dict': result})
             executor.__module__ = cls.__module__
             errors: List[str] = []
             success = executor.run_self_test(output=False, error_callback=errors.append)
@@ -128,7 +128,7 @@ class GCCExecutor(SingleDigitVersionMixin, CompiledExecutor):
         return result, success, 'Failed self-test', '\n'.join(errors)
 
     @classmethod
-    def autoconfig(cls) -> Tuple[Optional[Dict[str, Any]], bool, str, str]:
+    def autoconfig(cls) -> AutoConfigOutput:
         return super().autoconfig()
 
     @classmethod
@@ -140,9 +140,31 @@ class GCCExecutor(SingleDigitVersionMixin, CompiledExecutor):
         return res
 
 
-class CPPExecutor(GCCExecutor):
-    std: str
-    ext: str = 'cpp'
+class GCCMixin(CLikeExecutor):
+    arch: str = 'gcc_target_arch'
 
-    def get_flags(self):
-        return ([f'-std={self.std}']) + super().get_flags()
+    def get_flags(self) -> List[str]:
+        return super().get_flags() + [f'-fmax-errors={MAX_ERRORS}']
+
+    @classmethod
+    def get_version_flags(cls, command: str) -> List[VersionFlags]:
+        return ['-dumpversion']
+
+
+class ClangMixin(CLikeExecutor):
+    arch: str = 'clang_target_arch'
+
+    def get_flags(self) -> List[str]:
+        return super().get_flags() + [f'-ferror-limit={MAX_ERRORS}']
+
+    @classmethod
+    def get_version_flags(cls, command: str) -> List[VersionFlags]:
+        return ['--version']
+
+
+class CExecutor(CLikeExecutor):
+    ext: str = 'c'
+
+
+class CPPExecutor(CLikeExecutor):
+    ext: str = 'cpp'
