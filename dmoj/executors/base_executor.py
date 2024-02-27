@@ -321,8 +321,10 @@ class BaseExecutor(metaclass=ExecutorMeta):
     def initialize(cls) -> bool:
         command = cls.get_command()
         if command is None:
+            print_ansi(f'No command found for {cls.get_executor_name()}')
             return False
         if not os.path.isfile(command):
+            print_ansi(f'Command {command} for {cls.get_executor_name()} is not a file')
             return False
         return skip_self_test or cls.run_self_test()
 
