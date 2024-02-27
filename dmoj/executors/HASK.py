@@ -8,6 +8,7 @@ from dmoj.executors.mixins import NullStdoutMixin
 class Executor(NullStdoutMixin, CompiledExecutor):
     ext = 'hs'
     command = 'ghc'
+    compiler_time_limit = 20
     compiler_read_fs = [
         RecursiveDir('/proc/self/task'),
         RecursiveDir('/var/lib/ghc'),
